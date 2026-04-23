@@ -1,0 +1,103 @@
+{
+  "theme": "light",
+  "archetype": "Archetype 4 (Swiss & High-Contrast)",
+  "design_philosophy": "Objective, rigid, and functional. Designed for an export business owner to process high volumes of trade data efficiently. Density and clarity are prioritized over decoration.",
+  "typography": {
+    "fonts": {
+      "heading": "Chivo",
+      "body": "IBM Plex Sans",
+      "mono": "IBM Plex Mono"
+    },
+    "scale": {
+      "h1": "text-4xl tracking-tight font-black",
+      "h2": "text-2xl tracking-tight font-bold",
+      "h3": "text-xl font-bold",
+      "h4": "text-lg font-semibold",
+      "body": "text-sm leading-relaxed",
+      "labels": "text-xs tracking-[0.2em] uppercase font-bold text-slate-500"
+    }
+  },
+  "colors": {
+    "background": {
+      "default": "#FFFFFF",
+      "subtle": "#F8F9FA",
+      "muted": "#F1F5F9"
+    },
+    "text": {
+      "primary": "#0F172A",
+      "secondary": "#475569",
+      "muted": "#94A3B8",
+      "inverse": "#FFFFFF"
+    },
+    "brand": {
+      "primary": "#002FA7",
+      "primary_hover": "#00227A",
+      "accent": "#E53935",
+      "warning": "#F59E0B",
+      "success": "#10B981"
+    },
+    "border": {
+      "default": "#E2E8F0",
+      "focus": "#002FA7"
+    }
+  },
+  "layout_spacing": {
+    "container": "p-6 md:p-8 lg:p-12",
+    "grid_gap": "gap-4 md:gap-6",
+    "radius": "rounded-sm",
+    "border_style": "border border-slate-200"
+  },
+  "surface_styles": {
+    "dashboard_cards": "bg-white border border-slate-200 shadow-sm hover:shadow-md transition-shadow duration-200 rounded-sm",
+    "headers": "bg-white/90 backdrop-blur-md border-b border-slate-200 z-50",
+    "upload_zone": "border-2 border-dashed border-slate-300 bg-slate-50 hover:border-[#002FA7] hover:bg-[#F8FAFC] transition-colors duration-200 rounded-sm p-12 text-center",
+    "table_container": "border border-slate-200 rounded-sm overflow-hidden"
+  },
+  "motion": {
+    "hover": "transition-all duration-200 ease-in-out",
+    "focus": "focus:outline-none focus:ring-2 focus:ring-[#002FA7] focus:border-transparent focus:ring-offset-1"
+  },
+  "icons": {
+    "library": "@phosphor-icons/react",
+    "style": "duotone or regular, technical and precise"
+  },
+  "component_instructions": {
+    "Buttons": "Solid, sharp corners (rounded-sm). Primary button uses #002FA7. Must include hover states and focus rings. High contrast.",
+    "Data_Tables": "Dense spacing (p-2 or p-3 cells). Sticky headers. Hover row highlights. Left-aligned text, right-aligned numbers.",
+    "Forms_Inputs": "Shadcn inputs customized to have rounded-sm borders. Strict label typography (uppercase, tracked out).",
+    "Search_Bar": "Prominent, large (h-12). Icon on the left. Must support immediate filtering feedback.",
+    "Modals": "Use Shadcn Dialog. Clean white background, 1px border, backdrop-blur-sm overlay."
+  },
+  "image_urls": [
+    {
+      "url": "https://images.unsplash.com/photo-1769144256181-698b8f807066?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAxODF8MHwxfHNlYXJjaHwxfHxjb250YWluZXIlMjBzaGlwJTIwcG9ydCUyMGFlcmlhbHxlbnwwfHx8fDE3NzY5NzM3MDh8MA&ixlib=rb-4.1.0&q=85",
+      "description": "Cargo ship loaded with containers at a port. Perfect for the login screen background overlay. Apply a bg-black/40 overlay to ensure text contrast.",
+      "category": "login_background"
+    },
+    {
+      "url": "https://images.unsplash.com/photo-1768746350424-ee28a364dcf5?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NzR8MHwxfHNlYXJjaHwxfHxjbG90aGluZyUyMGZhY3RvcnklMjB0ZXh0aWxlfGVufDB8fHx8MTc3Njk3MzcwOHww&ixlib=rb-4.1.0&q=85",
+      "description": "Textile factory imagery. Good for dummy product categories or empty states in the 'shirts'/'textiles' segment.",
+      "category": "category_placeholder"
+    },
+    {
+      "url": "https://images.pexels.com/photos/12732218/pexels-photo-12732218.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "description": "Complex white geometric shapes. Good for subtle background textures behind data cards or the upload zone.",
+      "category": "texture_background"
+    }
+  ],
+  "accessibility": {
+    "contrast": "Strict adherence to APCA. Ensure all text on gray backgrounds is readable. Use #0F172A for primary text.",
+    "focus_management": "All interactive elements MUST have a visible focus ring.",
+    "testing_attributes": "Add data-testid attributes to all buttons, inputs, links, and table rows using kebab-case role-based naming."
+  },
+  "instructions_to_main_agent": [
+    "Build a robust dashboard layout with a collapsible sidebar and a sticky top header.",
+    "Implement the 'Control Room' grid pattern for the dashboard overview (tight gaps, dense data widgets).",
+    "Use Shadcn UI extensively for the tables, forms, and dialogs. Customize them to use 'rounded-sm' and strict border colors.",
+    "The search results page must feature a master-detail or highly segmented view. Group results by 'Country', 'Buyer', and 'Product'.",
+    "For the image upload component, create a prominent drag-and-drop zone using the 'upload_zone' surface style.",
+    "Ensure 'Chivo' is loaded for headings and 'IBM Plex Sans' for body text.",
+    "Do NOT use arbitrary card shadows. Stick to the sharp, 1px border style defined in 'surface_styles'.",
+    "All interactive elements must include a data-testid attribute."
+  ]
+}
