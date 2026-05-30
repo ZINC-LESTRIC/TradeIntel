@@ -5,9 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Search as SearchIcon, MapPin, Building2, Factory, ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
-
-const formatMoney = (n) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n || 0);
-const formatNum = (n) => new Intl.NumberFormat("en-US").format(n || 0);
+import { fmtMoney, fmtNum, currencySymbol } from "@/lib/format";
 
 export default function SearchPage() {
   const [q, setQ] = useState("");
@@ -32,7 +30,7 @@ export default function SearchPage() {
         <div className="label-tracked mb-3">SEARCH</div>
         <h1 className="heading-display text-4xl lg:text-5xl mb-3">Find every shipment</h1>
         <p className="text-sm text-slate-500">
-          Type a product (shirts, sportswear, basmati rice...) and see who buys it, at what price, in which country, from which Pakistani exporter.
+          Type a product (shirts, embroidery, sportswear, basmati rice...) and see who buys it, at what price, in which city, from which Pakistani exporter.
         </p>
       </div>
 
@@ -41,7 +39,7 @@ export default function SearchPage() {
         <Input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Try: shirts, sportswear, leather, basmati rice..."
+          placeholder="Try: shirts, embroidery, sportswear, leather, basmati rice..."
           className="h-14 pl-12 pr-32 text-base rounded-sm border-slate-300 focus:border-[#002FA7] focus:ring-[#002FA7]"
           data-testid="search-input"
         />
@@ -55,9 +53,8 @@ export default function SearchPage() {
         </Button>
       </form>
 
-      {/* Quick chips */}
       <div className="flex flex-wrap gap-2 mb-10">
-        {["shirts", "trousers", "sportswear", "bedlinen", "leather", "rice"].map((c) => (
+        {["shirts", "trousers", "embroidery", "sportswear", "bedlinen", "leather", "rice"].map((c) => (
           <button
             key={c}
             onClick={() => { setQ(c); setTimeout(() => document.querySelector('[data-testid="search-submit-button"]').click(), 0); }}
@@ -73,7 +70,7 @@ export default function SearchPage() {
         <div className="animate-in">
           <div className="flex items-baseline gap-4 mb-6 section-rule pt-6">
             <h2 className="heading-display text-2xl">"{data.query}"</h2>
-            <span className="label-tracked">{formatNum(data.total)} RESULTS</span>
+            <span className="label-tracked">{fmtNum(data.total)} RESULTS</span>
           </div>
 
           {data.total === 0 && (
@@ -100,19 +97,13 @@ export default function SearchPage() {
               </TabsList>
 
               <TabsContent value="country" className="mt-6 space-y-4">
-                {data.by_country.map((g) => (
-                  <GroupSection key={g.key} group={g} segLabel="COUNTRY" />
-                ))}
+                {data.by_country.map((g) => <GroupSection key={g.key} group={g} segLabel="COUNTRY" />)}
               </TabsContent>
               <TabsContent value="buyer" className="mt-6 space-y-4">
-                {data.by_buyer.map((g) => (
-                  <GroupSection key={g.key} group={g} segLabel="BUYER" />
-                ))}
+                {data.by_buyer.map((g) => <GroupSection key={g.key} group={g} segLabel="BUYER" />)}
               </TabsContent>
               <TabsContent value="exporter" className="mt-6 space-y-4">
-                {data.by_exporter.map((g) => (
-                  <GroupSection key={g.key} group={g} segLabel="EXPORTER" />
-                ))}
+                {data.by_exporter.map((g) => <GroupSection key={g.key} group={g} segLabel="EXPORTER" />)}
               </TabsContent>
               <TabsContent value="all" className="mt-6 space-y-2">
                 {data.records.map((r) => <RecordCard key={r.id} r={r} />)}
@@ -126,21 +117,27 @@ export default function SearchPage() {
 }
 
 function GroupSection({ group, segLabel }) {
+  // Detect dominant currency in group for price range display
+  const currencies = [...new Set(group.records.map(r => r.currency || "USD"))];
+  const dominantCur = currencies.length === 1 ? currencies[0] : "USD";
+  const sym = currencySymbol(dominantCur);
   return (
     <div className="border border-slate-200 rounded-sm" data-testid={`group-${group.key}`}>
-      <div className="flex items-center justify-between bg-slate-50 px-5 py-3 border-b border-slate-200">
+      <div className="flex items-center justify-between bg-slate-50 px-5 py-3 border-b border-slate-200 flex-wrap gap-2">
         <div className="flex items-center gap-3">
           <span className="label-tracked">{segLabel}</span>
           <h3 className="heading-display text-lg">{group.key}</h3>
           <span className="text-xs text-slate-400 mono">· {group.count} shipment{group.count !== 1 ? "s" : ""}</span>
         </div>
         <div className="flex items-center gap-6 text-xs">
-          {group.min_price !== null && (
+          {group.min_price !== null && currencies.length === 1 && (
             <span className="text-slate-500">
-              Price range <span className="mono font-bold text-slate-900">${group.min_price?.toFixed(2)}–${group.max_price?.toFixed(2)}</span>
+              Price range <span className="mono font-bold text-slate-900">{sym}{group.min_price?.toFixed(2)}–{sym}{group.max_price?.toFixed(2)}</span>
             </span>
           )}
-          <span className="mono font-bold text-[#002FA7]">{formatMoney(group.total_value)}</span>
+          {currencies.length > 1 && (
+            <span className="text-slate-500">Mixed currencies</span>
+          )}
         </div>
       </div>
       <div className="divide-y divide-slate-100">
@@ -151,6 +148,7 @@ function GroupSection({ group, segLabel }) {
 }
 
 function RecordCard({ r, compact }) {
+  const sym = currencySymbol(r.currency || "USD");
   return (
     <Link
       to={`/records/${r.id}`}
@@ -164,15 +162,18 @@ function RecordCard({ r, compact }) {
         </div>
         <div className="col-span-3">
           <div className="font-semibold text-slate-900">{r.buyer_company}</div>
-          <div className="text-xs text-slate-500 truncate">{r.buyer_name} · {r.buyer_country}</div>
+          <div className="text-xs text-slate-500 truncate">
+            {r.buyer_name && `${r.buyer_name} · `}
+            {r.buyer_city ? `${r.buyer_city}, ${r.buyer_country}` : r.buyer_country}
+          </div>
         </div>
         <div className="col-span-3">
           <div className="font-semibold text-slate-700">{r.exporter_company}</div>
           <div className="text-xs text-slate-400 truncate">{r.exporter_name}</div>
         </div>
         <div className="col-span-2 text-right">
-          <div className="mono font-bold text-slate-900">${r.unit_price?.toFixed(2)}<span className="text-xs text-slate-400 font-normal">/{r.unit}</span></div>
-          <div className="text-xs text-slate-400 mono">qty {new Intl.NumberFormat().format(r.quantity)}</div>
+          <div className="mono font-bold text-slate-900">{sym}{r.unit_price?.toFixed(2)}<span className="text-xs text-slate-400 font-normal">/{r.unit}</span></div>
+          <div className="text-xs text-slate-400 mono">qty {fmtNum(r.quantity)}</div>
         </div>
         <div className="col-span-1 text-right">
           <ArrowRight className="h-4 w-4 inline text-slate-300 group-hover:text-[#002FA7] transition" />

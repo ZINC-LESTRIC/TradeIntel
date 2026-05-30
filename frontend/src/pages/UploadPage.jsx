@@ -16,16 +16,20 @@ const FIELDS = [
   ["buyer_name", "Buyer Name"],
   ["buyer_company", "Buyer Company"],
   ["buyer_address", "Buyer Address"],
+  ["buyer_city", "Buyer City"],
   ["buyer_country", "Buyer Country"],
   ["buyer_email", "Buyer Email"],
   ["product_name", "Product Name"],
   ["product_category", "Product Category"],
   ["unit_price", "Unit Price"],
-  ["currency", "Currency"],
+  ["currency", "Currency (USD/EUR/GBP...)"],
   ["quantity", "Quantity"],
-  ["unit", "Unit"],
+  ["unit", "Unit (pcs/kg/sets...)"],
   ["total_value", "Total Value"],
+  ["gross_weight_kg", "Gross Weight (kg)"],
+  ["cartons", "Cartons"],
   ["shipment_date", "Shipment Date"],
+  ["gd_number", "GD #"],
   ["invoice_number", "Invoice #"],
 ];
 
@@ -174,10 +178,10 @@ export default function UploadPage() {
                     />
                   ) : (
                     <Input
-                      type={["unit_price", "quantity", "total_value"].includes(key) ? "number" : "text"}
+                      type={["unit_price", "quantity", "total_value", "gross_weight_kg", "cartons"].includes(key) ? "number" : "text"}
                       step="0.01"
                       value={data[key] ?? ""}
-                      onChange={(e) => setData({ ...data, [key]: ["unit_price", "quantity", "total_value"].includes(key) ? parseFloat(e.target.value) || 0 : e.target.value })}
+                      onChange={(e) => setData({ ...data, [key]: ["unit_price", "quantity", "total_value", "gross_weight_kg", "cartons"].includes(key) ? parseFloat(e.target.value) || 0 : e.target.value })}
                       className="rounded-sm mt-1.5 h-9 text-sm"
                       data-testid={`field-${key}`}
                     />

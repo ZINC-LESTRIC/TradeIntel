@@ -6,10 +6,11 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Button } from "@/components/ui/button";
 import { Search as SearchIcon, X, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-
-const formatMoney = (n) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n || 0);
+import { useAuth } from "@/context/AuthContext";
+import { fmtMoney, fmtNum, currencySymbol } from "@/lib/format";
 
 export default function RecordsPage() {
+  const { isAdmin } = useAuth();
   const [records, setRecords] = useState([]);
   const [filters, setFilters] = useState({ countries: [], buyers: [], exporters: [], products: [], categories: [] });
   const [q, setQ] = useState("");
@@ -41,7 +42,14 @@ export default function RecordsPage() {
   useEffect(() => { loadFilters(); }, []);
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [country, exporter, buyer]);
 
-  const total = useMemo(() => records.reduce((a, r) => a + (r.total_value || 0), 0), [records]);
+  const summary = useMemo(() => {
+    const byCur = {};
+    records.forEach(r => {
+      const c = r.currency || "USD";
+      byCur[c] = (byCur[c] || 0) + (r.total_value || 0);
+    });
+    return Object.entries(byCur).map(([cur, val]) => fmtMoney(val, cur)).join(" · ");
+  }, [records]);
 
   const reset = () => { setQ(""); setCountry("__all__"); setExporter("__all__"); setBuyer("__all__"); };
 
@@ -58,11 +66,10 @@ export default function RecordsPage() {
         <div>
           <div className="label-tracked mb-3">DATABASE</div>
           <h1 className="heading-display text-4xl">All records</h1>
-          <p className="text-sm text-slate-500 mt-2">{records.length} records · total value {formatMoney(total)}</p>
+          <p className="text-sm text-slate-500 mt-2">{records.length} records {summary && `· ${summary}`}</p>
         </div>
       </div>
 
-      {/* Filter bar */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-6">
         <div className="md:col-span-2 relative">
           <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -93,48 +100,56 @@ export default function RecordsPage() {
             <tr>
               <Th>Product</Th>
               <Th>Buyer</Th>
-              <Th>Country</Th>
+              <Th>City / Country</Th>
               <Th>Exporter</Th>
               <Th align="right">Unit Price</Th>
               <Th align="right">Qty</Th>
               <Th align="right">Total</Th>
               <Th>Date</Th>
-              <Th align="right"></Th>
+              {isAdmin && <Th align="right"></Th>}
             </tr>
           </thead>
           <tbody>
             {loading && (
-              <tr><td colSpan={9} className="p-8 text-center text-slate-400">Loading...</td></tr>
+              <tr><td colSpan={isAdmin ? 9 : 8} className="p-8 text-center text-slate-400">Loading...</td></tr>
             )}
             {!loading && records.length === 0 && (
-              <tr><td colSpan={9} className="p-8 text-center text-slate-400">No records found</td></tr>
+              <tr><td colSpan={isAdmin ? 9 : 8} className="p-8 text-center text-slate-400">No records found</td></tr>
             )}
-            {records.map((r) => (
-              <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50 transition" data-testid={`record-tr-${r.id}`}>
-                <td className="p-3">
-                  <Link to={`/records/${r.id}`} className="font-bold text-slate-900 hover:text-[#002FA7]">{r.product_name}</Link>
-                  <div className="text-xs text-slate-400">{r.product_category}</div>
-                </td>
-                <td className="p-3">
-                  <div className="font-semibold">{r.buyer_company}</div>
-                  <div className="text-xs text-slate-400">{r.buyer_name}</div>
-                </td>
-                <td className="p-3">{r.buyer_country}</td>
-                <td className="p-3">
-                  <div className="font-semibold">{r.exporter_company}</div>
-                  <div className="text-xs text-slate-400">{r.exporter_name}</div>
-                </td>
-                <td className="p-3 text-right mono">${r.unit_price?.toFixed(2)}</td>
-                <td className="p-3 text-right mono text-slate-500">{new Intl.NumberFormat().format(r.quantity)} {r.unit}</td>
-                <td className="p-3 text-right mono font-bold text-[#002FA7]">{formatMoney(r.total_value)}</td>
-                <td className="p-3 text-xs text-slate-500">{r.shipment_date}</td>
-                <td className="p-3 text-right">
-                  <button onClick={() => handleDelete(r.id)} className="text-slate-300 hover:text-[#E53935] transition" data-testid={`delete-${r.id}`}>
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {records.map((r) => {
+              const sym = currencySymbol(r.currency || "USD");
+              return (
+                <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50 transition" data-testid={`record-tr-${r.id}`}>
+                  <td className="p-3">
+                    <Link to={`/records/${r.id}`} className="font-bold text-slate-900 hover:text-[#002FA7]">{r.product_name}</Link>
+                    <div className="text-xs text-slate-400">{r.product_category}</div>
+                  </td>
+                  <td className="p-3">
+                    <div className="font-semibold">{r.buyer_company}</div>
+                    <div className="text-xs text-slate-400">{r.buyer_name}</div>
+                  </td>
+                  <td className="p-3">
+                    {r.buyer_city && <div className="font-semibold">{r.buyer_city}</div>}
+                    <div className="text-xs text-slate-500">{r.buyer_country}</div>
+                  </td>
+                  <td className="p-3">
+                    <div className="font-semibold">{r.exporter_company}</div>
+                    <div className="text-xs text-slate-400">{r.exporter_name}</div>
+                  </td>
+                  <td className="p-3 text-right mono">{sym}{r.unit_price?.toFixed(2)}</td>
+                  <td className="p-3 text-right mono text-slate-500">{fmtNum(r.quantity)} {r.unit}</td>
+                  <td className="p-3 text-right mono font-bold text-[#002FA7]">{fmtMoney(r.total_value, r.currency)}</td>
+                  <td className="p-3 text-xs text-slate-500">{r.shipment_date}</td>
+                  {isAdmin && (
+                    <td className="p-3 text-right">
+                      <button onClick={() => handleDelete(r.id)} className="text-slate-300 hover:text-[#E53935] transition" data-testid={`delete-${r.id}`}>
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

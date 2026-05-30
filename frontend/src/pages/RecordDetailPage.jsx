@@ -3,13 +3,14 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { ArrowLeft, Trash2, MapPin, Mail, Building2, Factory, Package, Calendar, Hash } from "lucide-react";
-
-const formatMoney = (n) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(n || 0);
+import { useAuth } from "@/context/AuthContext";
+import { ArrowLeft, Trash2, MapPin, Mail, Building2, Factory, Package, Calendar, Hash, Boxes, Weight } from "lucide-react";
+import { fmtMoney, fmtNum, currencySymbol } from "@/lib/format";
 
 export default function RecordDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
   const [r, setR] = useState(null);
 
   useEffect(() => {
@@ -24,6 +25,7 @@ export default function RecordDetailPage() {
   };
 
   if (!r) return <div className="p-12 text-slate-400">Loading...</div>;
+  const sym = currencySymbol(r.currency || "USD");
 
   return (
     <div className="p-8 lg:p-12 max-w-5xl" data-testid="record-detail-page">
@@ -31,22 +33,28 @@ export default function RecordDetailPage() {
         <ArrowLeft className="h-3 w-3" /> All records
       </Link>
 
-      <div className="flex items-start justify-between mb-8">
+      <div className="flex items-start justify-between mb-8 gap-4">
         <div>
           <div className="label-tracked mb-3">{r.product_category || "TRADE RECORD"}</div>
           <h1 className="heading-display text-4xl mb-2">{r.product_name}</h1>
-          <p className="text-sm text-slate-500 mono">Invoice {r.invoice_number || "—"} · {r.shipment_date || "no date"}</p>
+          <p className="text-sm text-slate-500 mono">
+            {r.gd_number && <span>GD {r.gd_number} · </span>}
+            {r.invoice_number && !r.gd_number && <span>Invoice {r.invoice_number} · </span>}
+            {r.shipment_date || "no date"}
+          </p>
         </div>
-        <Button onClick={del} variant="outline" className="rounded-sm border-red-200 text-[#E53935] hover:bg-red-50" data-testid="detail-delete-button">
-          <Trash2 className="h-4 w-4 mr-2" /> Delete
-        </Button>
+        {isAdmin && (
+          <Button onClick={del} variant="outline" className="rounded-sm border-red-200 text-[#E53935] hover:bg-red-50" data-testid="detail-delete-button">
+            <Trash2 className="h-4 w-4 mr-2" /> Delete
+          </Button>
+        )}
       </div>
 
-      {/* Hero KPIs */}
-      <div className="grid grid-cols-3 gap-3 mb-8">
-        <Kpi label="UNIT PRICE" value={`$${r.unit_price?.toFixed(2)}`} sub={`per ${r.unit}`} />
-        <Kpi label="QUANTITY" value={new Intl.NumberFormat().format(r.quantity)} sub={r.unit} />
-        <Kpi label="TOTAL VALUE" value={formatMoney(r.total_value)} sub={r.currency} highlight />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
+        <Kpi label="UNIT PRICE" value={`${sym}${(r.unit_price || 0).toFixed(2)}`} sub={`per ${r.unit}`} />
+        <Kpi label="QUANTITY" value={fmtNum(r.quantity)} sub={r.unit} />
+        <Kpi label="TOTAL VALUE" value={fmtMoney(r.total_value, r.currency)} sub={r.currency} highlight />
+        <Kpi label="PACKAGING" value={r.cartons ? `${fmtNum(r.cartons)} ctns` : "—"} sub={r.gross_weight_kg ? `${r.gross_weight_kg} kg gross` : ""} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -60,6 +68,7 @@ export default function RecordDetailPage() {
         <Block title="Buyer / Consignee" icon={Building2}>
           <Row label="Company" value={r.buyer_company} />
           <Row label="Contact" value={r.buyer_name} />
+          <Row label="City" value={r.buyer_city} icon={MapPin} />
           <Row label="Country" value={r.buyer_country} icon={MapPin} />
           <Row label="Email" value={r.buyer_email} icon={Mail} mono />
           <Row label="Address" value={r.buyer_address} multiline />
@@ -68,11 +77,16 @@ export default function RecordDetailPage() {
         <Block title="Product" icon={Package}>
           <Row label="Name" value={r.product_name} />
           <Row label="Category" value={r.product_category} />
+          <Row label="Unit" value={r.unit} />
+          <Row label="Currency" value={r.currency} />
         </Block>
 
         <Block title="Shipment" icon={Calendar}>
+          <Row label="GD #" value={r.gd_number} icon={Hash} mono />
           <Row label="Invoice #" value={r.invoice_number} icon={Hash} mono />
           <Row label="Date" value={r.shipment_date} />
+          <Row label="Gross weight" value={r.gross_weight_kg ? `${r.gross_weight_kg} kg` : ""} icon={Weight} />
+          <Row label="Cartons" value={r.cartons ? fmtNum(r.cartons) : ""} icon={Boxes} />
           <Row label="Notes" value={r.notes} multiline />
         </Block>
       </div>

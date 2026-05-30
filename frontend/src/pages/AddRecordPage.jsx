@@ -10,10 +10,11 @@ import { Save } from "lucide-react";
 
 const empty = {
   exporter_name: "", exporter_company: "", exporter_address: "", exporter_country: "Pakistan",
-  buyer_name: "", buyer_company: "", buyer_address: "", buyer_country: "", buyer_email: "",
+  buyer_name: "", buyer_company: "", buyer_address: "", buyer_city: "", buyer_country: "", buyer_email: "",
   product_name: "", product_category: "",
   unit_price: 0, currency: "USD", quantity: 0, unit: "pcs", total_value: 0,
-  shipment_date: "", invoice_number: "", notes: "",
+  gross_weight_kg: 0, cartons: 0,
+  shipment_date: "", gd_number: "", invoice_number: "", notes: "",
 };
 
 const SECTIONS = [
@@ -23,10 +24,12 @@ const SECTIONS = [
       ["product_name", "Product Name", "text"],
       ["product_category", "Category", "text"],
       ["unit_price", "Unit Price", "number"],
-      ["currency", "Currency", "text"],
+      ["currency", "Currency (USD/EUR/GBP/PKR)", "text"],
       ["quantity", "Quantity", "number"],
-      ["unit", "Unit (pcs/kg/...)", "text"],
+      ["unit", "Unit (pcs/kg/sets/...)", "text"],
       ["total_value", "Total Value", "number"],
+      ["gross_weight_kg", "Gross Weight (kg)", "number"],
+      ["cartons", "Cartons", "number"],
     ],
   },
   {
@@ -43,6 +46,7 @@ const SECTIONS = [
     fields: [
       ["buyer_company", "Company", "text"],
       ["buyer_name", "Contact Name", "text"],
+      ["buyer_city", "City", "text"],
       ["buyer_country", "Country", "text"],
       ["buyer_email", "Email", "text"],
       ["buyer_address", "Address", "textarea"],
@@ -51,6 +55,7 @@ const SECTIONS = [
   {
     title: "SHIPMENT",
     fields: [
+      ["gd_number", "GD #", "text"],
       ["invoice_number", "Invoice #", "text"],
       ["shipment_date", "Date (YYYY-MM-DD)", "text"],
       ["notes", "Notes", "textarea"],
