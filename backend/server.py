@@ -225,16 +225,17 @@ async def list_records(
     import re
     and_clauses = []
     if q:
+        qe = re.escape(q)
         and_clauses.append({"$or": [
-            {"product_name": {"$regex": q, "$options": "i"}},
-            {"product_category": {"$regex": q, "$options": "i"}},
-            {"buyer_name": {"$regex": q, "$options": "i"}},
-            {"buyer_company": {"$regex": q, "$options": "i"}},
-            {"exporter_name": {"$regex": q, "$options": "i"}},
-            {"exporter_company": {"$regex": q, "$options": "i"}},
-            {"buyer_country": {"$regex": q, "$options": "i"}},
-            {"buyer_city": {"$regex": q, "$options": "i"}},
-            {"notes": {"$regex": q, "$options": "i"}},
+            {"product_name": {"$regex": qe, "$options": "i"}},
+            {"product_category": {"$regex": qe, "$options": "i"}},
+            {"buyer_name": {"$regex": qe, "$options": "i"}},
+            {"buyer_company": {"$regex": qe, "$options": "i"}},
+            {"exporter_name": {"$regex": qe, "$options": "i"}},
+            {"exporter_company": {"$regex": qe, "$options": "i"}},
+            {"buyer_country": {"$regex": qe, "$options": "i"}},
+            {"buyer_city": {"$regex": qe, "$options": "i"}},
+            {"notes": {"$regex": qe, "$options": "i"}},
         ]})
     if country:
         and_clauses.append({"buyer_country": {"$regex": f"^{re.escape(country)}$", "$options": "i"}})
@@ -326,10 +327,12 @@ async def stats(_: dict = Depends(get_current_user)):
 async def search(q: str, _: dict = Depends(get_current_user)):
     if not q or not q.strip():
         return {"query": q, "total": 0, "records": [], "by_country": [], "by_buyer": [], "by_exporter": []}
+    import re
+    qe = re.escape(q)
     filt = {"$or": [
-        {"product_name": {"$regex": q, "$options": "i"}},
-        {"product_category": {"$regex": q, "$options": "i"}},
-        {"notes": {"$regex": q, "$options": "i"}},
+        {"product_name": {"$regex": qe, "$options": "i"}},
+        {"product_category": {"$regex": qe, "$options": "i"}},
+        {"notes": {"$regex": qe, "$options": "i"}},
     ]}
     docs = await db.records.find(filt, {"_id": 0}).to_list(2000)
 
