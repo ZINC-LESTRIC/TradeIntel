@@ -17,15 +17,12 @@ import jwt
 from datetime import datetime, timezone, timedelta
 from collections import defaultdict
 
-from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
-
 ROOT_DIR = Path(__file__).parent
 
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY')
 JWT_SECRET = os.environ.get('JWT_SECRET', 'change-me')
 ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', 'admin@example.com').lower()
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
@@ -379,85 +376,6 @@ async def filters(_: dict = Depends(get_current_user)):
         "categories": uniq("product_category"),
     }
 
-
-# ============== AI EXTRACT (admin only) ==============
-EXTRACT_SYSTEM = """You are an expert at extracting structured trade/shipping data from invoices, packing lists, bills of lading, purchase orders, GD (Goods Declaration) forms or any export document image.
-
-Extract ALL of the following fields if visible. Return ONLY valid JSON (no markdown, no commentary). Use empty string for missing text fields and 0 for missing numbers. Detect currency symbol (€=EUR, $=USD, £=GBP, ¥=JPY) and put the currency code.
-
-{
-  "exporter_name": "",
-  "exporter_company": "",
-  "exporter_address": "",
-  "exporter_country": "Pakistan",
-  "buyer_name": "",
-  "buyer_company": "",
-  "buyer_address": "",
-  "buyer_country": "",
-  "buyer_city": "",
-  "buyer_email": "",
-  "product_name": "",
-  "product_category": "",
-  "unit_price": 0,
-  "currency": "USD",
-  "quantity": 0,
-  "unit": "pcs",
-  "total_value": 0,
-  "gross_weight_kg": 0,
-  "cartons": 0,
-  "shipment_date": "",
-  "gd_number": "",
-  "invoice_number": "",
-  "notes": ""
-}
-"""
-
-
-@api_router.post("/extract")
-async def extract_from_image(file: UploadFile = File(...), _: dict = Depends(require_admin)):
-    if not EMERGENT_LLM_KEY:
-        raise HTTPException(status_code=500, detail="LLM key not configured")
-    raw = await file.read()
-    if not raw:
-        raise HTTPException(status_code=400, detail="Empty file")
-    b64 = base64.b64encode(raw).decode("utf-8")
-    chat = LlmChat(
-        api_key=EMERGENT_LLM_KEY,
-        session_id=f"extract-{uuid.uuid4()}",
-        system_message=EXTRACT_SYSTEM,
-    ).with_model("gemini", "gemini-3-flash-preview")
-    image = ImageContent(image_base64=b64)
-    msg = UserMessage(
-        text="Extract the trade record from this document image. Return only the JSON object as specified.",
-        file_contents=[image],
-    )
-    try:
-        resp = await chat.send_message(msg)
-    except Exception as e:
-        logging.exception("LLM extract failed")
-        raise HTTPException(status_code=500, detail=f"LLM error: {e}")
-
-    text = resp if isinstance(resp, str) else str(resp)
-    cleaned = text.strip()
-    if cleaned.startswith("```"):
-        cleaned = cleaned.strip("`")
-        if cleaned.lower().startswith("json"):
-            cleaned = cleaned[4:]
-        cleaned = cleaned.strip()
-    try:
-        start = cleaned.index("{")
-        end = cleaned.rindex("}") + 1
-        data = json.loads(cleaned[start:end])
-    except Exception:
-        raise HTTPException(status_code=500, detail=f"Could not parse LLM response: {text[:300]}")
-    for k in ("unit_price", "quantity", "total_value", "gross_weight_kg", "cartons"):
-        try:
-            data[k] = float(data.get(k) or 0)
-        except (TypeError, ValueError):
-            data[k] = 0.0
-    if not data.get("total_value") and data.get("unit_price") and data.get("quantity"):
-        data["total_value"] = round(data["unit_price"] * data["quantity"], 2)
-    return {"extracted": data, "raw": text}
 
 
 # ============== ADMIN: USER MANAGEMENT ==============
