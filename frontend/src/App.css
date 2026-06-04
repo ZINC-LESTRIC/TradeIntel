@@ -1,0 +1,104 @@
+/* Reset */
+.App {
+  min-height: 100vh;
+  background: #ffffff;
+  color: #0f172a;
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+}
+
+/* Custom selection */
+::selection {
+  background: #002FA7;
+  color: #fff;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: #F8F9FA; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 0; }
+::-webkit-scrollbar-thumb:hover { background: #002FA7; }
+
+/* Sidebar nav item */
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-left: 2px solid transparent;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  transition: all 200ms ease-in-out;
+  cursor: pointer;
+  text-decoration: none;
+}
+.nav-item:hover {
+  background: #F1F5F9;
+  color: #0f172a;
+}
+.nav-item.active {
+  background: #F8F9FA;
+  border-left-color: #002FA7;
+  color: #002FA7;
+  font-weight: 700;
+}
+
+/* Stat card emphasis */
+.stat-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 2px;
+  padding: 20px;
+  transition: box-shadow 200ms ease-in-out;
+}
+.stat-card:hover { box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+
+.label-tracked {
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: #94A3B8;
+}
+
+.heading-display {
+  font-family: 'Chivo', system-ui, sans-serif;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+/* Drop zone */
+.dropzone {
+  border: 2px dashed #cbd5e1;
+  background: #F8FAFC;
+  border-radius: 2px;
+  padding: 56px 24px;
+  text-align: center;
+  transition: all 200ms ease-in-out;
+  cursor: pointer;
+}
+.dropzone:hover, .dropzone.active {
+  border-color: #002FA7;
+  background: #EEF2FF;
+}
+
+/* Animated entrance */
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-in { animation: slideUp 320ms ease-out both; }
+
+/* Group section divider */
+.section-rule {
+  border-top: 1px solid #e2e8f0;
+  position: relative;
+}
+.section-rule::before {
+  content: '';
+  position: absolute;
+  top: -1px; left: 0;
+  width: 56px; height: 2px;
+  background: #002FA7;
+}
