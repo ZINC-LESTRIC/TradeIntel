@@ -17,12 +17,15 @@ import jwt
 from datetime import datetime, timezone, timedelta
 from collections import defaultdict
 
+from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
+
 ROOT_DIR = Path(__file__).parent
 
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
+EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY')
 JWT_SECRET = os.environ.get('JWT_SECRET', 'change-me')
 ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', 'admin@example.com').lower()
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
@@ -377,6 +380,85 @@ async def filters(_: dict = Depends(get_current_user)):
     }
 
 
+# ============== AI EXTRACT (admin only) ==============
+EXTRACT_SYSTEM = """You are an expert at extracting structured trade/shipping data from invoices, packing lists, bills of lading, purchase orders, GD (Goods Declaration) forms or any export document image.
+
+Extract ALL of the following fields if visible. Return ONLY valid JSON (no markdown, no commentary). Use empty string for missing text fields and 0 for missing numbers. Detect currency symbol (€=EUR, $=USD, £=GBP, ¥=JPY) and put the currency code.
+
+{
+  "exporter_name": "",
+  "exporter_company": "",
+  "exporter_address": "",
+  "exporter_country": "Pakistan",
+  "buyer_name": "",
+  "buyer_company": "",
+  "buyer_address": "",
+  "buyer_country": "",
+  "buyer_city": "",
+  "buyer_email": "",
+  "product_name": "",
+  "product_category": "",
+  "unit_price": 0,
+  "currency": "USD",
+  "quantity": 0,
+  "unit": "pcs",
+  "total_value": 0,
+  "gross_weight_kg": 0,
+  "cartons": 0,
+  "shipment_date": "",
+  "gd_number": "",
+  "invoice_number": "",
+  "notes": ""
+}
+"""
+
+
+@api_router.post("/extract")
+async def extract_from_image(file: UploadFile = File(...), _: dict = Depends(require_admin)):
+    if not EMERGENT_LLM_KEY:
+        raise HTTPException(status_code=500, detail="LLM key not configured")
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="Empty file")
+    b64 = base64.b64encode(raw).decode("utf-8")
+    chat = LlmChat(
+        api_key=EMERGENT_LLM_KEY,
+        session_id=f"extract-{uuid.uuid4()}",
+        system_message=EXTRACT_SYSTEM,
+    ).with_model("gemini", "gemini-3-flash-preview")
+    image = ImageContent(image_base64=b64)
+    msg = UserMessage(
+        text="Extract the trade record from this document image. Return only the JSON object as specified.",
+        file_contents=[image],
+    )
+    try:
+        resp = await chat.send_message(msg)
+    except Exception as e:
+        logging.exception("LLM extract failed")
+        raise HTTPException(status_code=500, detail=f"LLM error: {e}")
+
+    text = resp if isinstance(resp, str) else str(resp)
+    cleaned = text.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.strip("`")
+        if cleaned.lower().startswith("json"):
+            cleaned = cleaned[4:]
+        cleaned = cleaned.strip()
+    try:
+        start = cleaned.index("{")
+        end = cleaned.rindex("}") + 1
+        data = json.loads(cleaned[start:end])
+    except Exception:
+        raise HTTPException(status_code=500, detail=f"Could not parse LLM response: {text[:300]}")
+    for k in ("unit_price", "quantity", "total_value", "gross_weight_kg", "cartons"):
+        try:
+            data[k] = float(data.get(k) or 0)
+        except (TypeError, ValueError):
+            data[k] = 0.0
+    if not data.get("total_value") and data.get("unit_price") and data.get("quantity"):
+        data["total_value"] = round(data["unit_price"] * data["quantity"], 2)
+    return {"extracted": data, "raw": text}
+
 
 # ============== ADMIN: USER MANAGEMENT ==============
 @api_router.get("/admin/users")
@@ -442,117 +524,51 @@ SAMPLE_RECORDS = [
     {"exporter_name": "Dr. Asif Mahmood", "exporter_company": "Sialkot Surgical Instruments Co", "exporter_address": "Sialkot Cantt, Pakistan", "exporter_country": "Pakistan", "buyer_name": "Hiroshi Tanaka", "buyer_company": "Medline Industries Japan", "buyer_address": "Tokyo, Japan", "buyer_country": "Japan", "buyer_city": "Tokyo", "buyer_email": "tanaka@medline.jp", "product_name": "Surgical Scissors Set", "product_category": "Medical", "unit_price": 14.20, "currency": "USD", "quantity": 4500, "unit": "sets", "shipment_date": "2025-12-06", "gd_number": "SKTP-2025-7700", "invoice_number": "SSI-7700", "notes": "Stainless steel, ISO certified"},
     {"exporter_name": "Adeel Hussain", "exporter_company": "Punjab Rice Exporters", "exporter_address": "Gujranwala, Pakistan", "exporter_country": "Pakistan", "buyer_name": "Yusuf Al-Mansoori", "buyer_company": "Al Maya Group", "buyer_address": "Sheikh Zayed Rd, Dubai, UAE", "buyer_country": "UAE", "buyer_city": "Dubai", "buyer_email": "y.almansoori@almaya.ae", "product_name": "Basmati Rice 1121", "product_category": "Food", "unit_price": 1250.00, "currency": "USD", "quantity": 50, "unit": "tons", "shipment_date": "2025-11-18", "gd_number": "LHRP-2025-8800", "invoice_number": "PRE-8800", "notes": "Premium long grain"},
     {"exporter_name": "Adeel Hussain", "exporter_company": "Punjab Rice Exporters", "exporter_address": "Gujranwala, Pakistan", "exporter_country": "Pakistan", "buyer_name": "Mohammed Rahman", "buyer_company": "Bangladesh Trading Co", "buyer_address": "Chittagong, Bangladesh", "buyer_country": "Bangladesh", "buyer_city": "Chittagong", "buyer_email": "m.rahman@btc.bd", "product_name": "IRRI-6 Rice", "product_category": "Food", "unit_price": 480.00, "currency": "USD", "quantity": 200, "unit": "tons", "shipment_date": "2025-12-03", "gd_number": "LHRP-2025-8830", "invoice_number": "PRE-8830", "notes": "Bulk shipment"},
-    {"exporter_name": "Adeel Hussain", "exporter_company": "Multan Fresh Fruits", "exporter_address": "Multan, Pakistan", "exporter_country": "Pakistan", "buyer_name": "Emma Clarke", "buyer_company": "Tesco UK", "buyer_address": "Tesco House, Welwyn Garden City, UK", "buyer_country": "UK", "buyer_city": "Welwyn", "buyer_email": "emma.c@tesco.com", "product_name": "Sindhri Mangoes", "product_category": "Food", "unit_price": 2.20, "currency": "GBP", "quantity": 15000, "unit": "kg", "shipment_date": "2025-06-15", "gd_number": "LHRP-2025-9012", "invoice_number": "MFF-9012", "notes": "Air freight, climate-controlled"}
+    {"exporter_name": "Adeel Hussain", "exporter_company": "Multan Fresh Fruits", "exporter_address": "Multan, Pakistan", "exporter_country": "Pakistan", "buyer_name": "Emma Clarke", "buyer_company": "Tesco UK", "buyer_address": "Tesco House, Welwyn Garden City, UK", "buyer_country": "UK", "buyer_city": "Welwyn", "buyer_email": "emma.c@tesco.com", "product_name": "Sindhri Mangoes", "product_category": "Food", "unit_price": 2.20, "currency": "GBP", "quantity": 18000, "unit": "kg", "shipment_date": "2025-07-15", "gd_number": "LHRP-2025-441", "invoice_number": "MFF-441", "notes": "Air shipment, premium grade"},
+    {"exporter_name": "Wasim Akram", "exporter_company": "Lahore Carpet House", "exporter_address": "Mall Rd, Lahore, Pakistan", "exporter_country": "Pakistan", "buyer_name": "Klaus Becker", "buyer_company": "Tchibo GmbH", "buyer_address": "Überseering 18, Hamburg, Germany", "buyer_country": "Germany", "buyer_city": "Hamburg", "buyer_email": "becker@tchibo.de", "product_name": "Hand-Knotted Carpets", "product_category": "Home Decor", "unit_price": 285.00, "currency": "EUR", "quantity": 320, "unit": "pcs", "shipment_date": "2025-11-26", "gd_number": "LHRP-2025-2201", "invoice_number": "LCH-2201", "notes": "Persian design, wool"},
+    {"exporter_name": "Ali Raza", "exporter_company": "Faisalabad Apparel House", "exporter_address": "Jhang Road, Faisalabad, Pakistan", "exporter_country": "Pakistan", "buyer_name": "Mark Wilson", "buyer_company": "Marks & Spencer", "buyer_address": "Waterside House, 35 N Wharf Rd, London, UK", "buyer_country": "UK", "buyer_city": "London", "buyer_email": "mark.w@marksandspencer.com", "product_name": "Flannel Shirts", "product_category": "Shirts", "unit_price": 8.20, "currency": "GBP", "quantity": 7200, "unit": "pcs", "shipment_date": "2025-10-18", "gd_number": "LHRP-2025-7900", "invoice_number": "FAH-7900", "notes": "Plaid, brushed cotton"},
+    {"exporter_name": "Sana Tariq", "exporter_company": "Karachi Garments Co", "exporter_address": "SITE Area, Karachi, Pakistan", "exporter_country": "Pakistan", "buyer_name": "Maria Rodriguez", "buyer_company": "El Corte Inglés", "buyer_address": "Calle Hermosilla 112, Madrid, Spain", "buyer_country": "Spain", "buyer_city": "Madrid", "buyer_email": "maria.r@elcorteingles.es", "product_name": "Denim Shirts", "product_category": "Shirts", "unit_price": 7.10, "currency": "EUR", "quantity": 5400, "unit": "pcs", "shipment_date": "2025-11-05", "gd_number": "KHIP-2025-3500", "invoice_number": "KGC-3500", "notes": "Light wash"},
+    {"exporter_name": "Ahmed Khan", "exporter_company": "Lahore Textiles Pvt Ltd", "exporter_address": "Plot 42, Sundar Industrial Estate, Lahore, Pakistan", "exporter_country": "Pakistan", "buyer_name": "Hiroshi Tanaka", "buyer_company": "Uniqlo Japan", "buyer_address": "1-6-7 Ariake, Koto, Tokyo, Japan", "buyer_country": "Japan", "buyer_city": "Tokyo", "buyer_email": "h.tanaka@uniqlo.co.jp", "product_name": "T-Shirts (Round Neck)", "product_category": "Shirts", "unit_price": 3.20, "currency": "USD", "quantity": 25000, "unit": "pcs", "shipment_date": "2025-12-14", "gd_number": "KHIP-2025-600", "invoice_number": "LTX-2025-600", "notes": "Cotton/poly blend"},
+    # Italy embroidery (matching user's screenshot)
+    {"exporter_name": "Neka Pak Industries", "exporter_company": "Neka Pak Industries", "exporter_address": "Chounni Solehria Rd, Sialkot, Pakistan", "exporter_country": "Pakistan", "buyer_name": "Sergio Imperatrice", "buyer_company": "L. Imperatrice Di Sergio", "buyer_address": "Naples, Italy", "buyer_country": "Italy", "buyer_city": "Naples", "buyer_email": "", "product_name": "Hand Embroidery Goods", "product_category": "Embroidery", "unit_price": 82.0, "currency": "EUR", "quantity": 49, "unit": "kg", "total_value": 4031.0, "gross_weight_kg": 49, "cartons": 3, "shipment_date": "2026-03-25", "gd_number": "GD #2", "invoice_number": "GD-2", "notes": "Hand embroidery, 3 cartons"},
 ]
 
-@api_router.post("/admin/seed")
-async def seed_records(_: dict = Depends(require_admin)):
-    existing_count = await db.records.count_documents({})
-    if existing_count > 0:
-        return {"status": f"Database already contains {existing_count} records. Seeding skipped."}
-        
-    formatted_records = []
+
+@api_router.post("/seed")
+async def seed(_: dict = Depends(require_admin)):
+    count = await db.records.count_documents({})
+    if count > 0:
+        return {"seeded": False, "existing": count}
+    docs = []
     for r in SAMPLE_RECORDS:
-        record_model = TradeRecord(**r)
-        if not record_model.total_value and record_model.unit_price and record_model.quantity:
-            record_model.total_value = round(record_model.unit_price * record_model.quantity, 2)
-        formatted_records.append(record_model.model_dump())
-        
-    await db.records.insert_many(formatted_records)
-    return {"status": f"Successfully injected {len(formatted_records)} structural trade files."}
+        rec = TradeRecord(**r)
+        if not rec.total_value and rec.unit_price and rec.quantity:
+            rec.total_value = round(rec.unit_price * rec.quantity, 2)
+        docs.append(rec.model_dump())
+    if docs:
+        await db.records.insert_many(docs)
+    return {"seeded": True, "count": len(docs)}
 
 
-# ============== GD DATA EXTRACTION (GEMINI AI) ==============
-import google.generativeai as genai
-
-GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
-
-@api_router.post("/extract")
-async def extract_gd(file: UploadFile = File(...), _: dict = Depends(require_admin)):
-    if not GEMINI_API_KEY:
-        raise HTTPException(
-            status_code=500, 
-            detail="GEMINI_API_KEY is missing from environment variables."
-        )
-    
-    try:
-        contents = await file.read()
-        if not contents:
-            raise HTTPException(status_code=400, detail="Uploaded file is empty.")
-        
-        base64_image = base64.b64encode(contents).decode("utf-8")
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to read file payload: {str(e)}")
-        
-    mime_type = file.content_type or "image/jpeg"
-    
-    prompt = """You are a Pakistani customs documentation expert specializing in WeBOC and Pakistan Single Window (PSW) files. 
-Extract all structured fields from this Goods Declaration (GD) document accurately.
-
-You must output a single JSON object matching this exact structural schema:
-{
-  "exporter_name": "String",
-  "exporter_company": "String",
-  "exporter_address": "String",
-  "exporter_country": "Pakistan",
-  "buyer_name": "String",
-  "buyer_company": "String",
-  "buyer_address": "String",
-  "buyer_country": "String",
-  "buyer_city": "String",
-  "buyer_email": "String",
-  "product_name": "String",
-  "product_category": "String",
-  "unit_price": 0.0,
-  "currency": "USD",
-  "quantity": 0.0,
-  "unit": "pcs",
-  "total_value": 0.0,
-  "gross_weight_kg": 0.0,
-  "cartons": 0.0,
-  "shipment_date": "YYYY-MM-DD",
-  "gd_number": "String",
-  "invoice_number": "String",
-  "notes": "String"
-}
-
-Rules:
-1. Ensure numerical attributes (unit_price, quantity, total_value, gross_weight_kg, cartons) are parsed strictly as raw floats/integers, never wrapped in strings.
-2. If a data point cannot be found within the document fields, return an empty string or 0.0 for numbers. Do not fabricate values.
-"""
-
-    try:
-        model = genai.GenerativeModel("gemini-1.5-flash")
-        
-        # Enforce Structured Outputs natively to avoid broken markdown responses
-        response = model.generate_content(
-            contents=[
-                {"mime_type": mime_type, "data": base64_image},
-                prompt
-            ],
-            generation_config={"response_mime_type": "application/json"}
-        )
-        
-        raw_text = response.text.strip()
-        extracted_data = json.loads(raw_text)
-        
-        return {"success": True, "data": extracted_data}
-        
-    except json.JSONDecodeError as e:
-        logging.error(f"JSON Parsing Error from Gemini output: {raw_text}")
-        raise HTTPException(
-            status_code=422, 
-            detail=f"AI returned invalid JSON formatting: {str(e)}"
-        )
-    except Exception as e:
-        logging.error(f"Gemini Extraction Exception: {str(e)}")
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Internal Extraction Pipeline Failure: {str(e)}"
-        )
+@api_router.get("/")
+async def root():
+    return {"message": "Trade Intelligence API"}
 
 
-# ============== MOUNT APIROUTER TO APP EXTERNAL SCOPE ==============
+# Mount
 app.include_router(api_router)
+app.add_middleware(
+    CORSMiddleware,
+    allow_credentials=True,
+    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+
+@app.on_event("shutdown")
+async def shutdown_db_client():
+    client.close()
