@@ -556,6 +556,68 @@ async def root():
 
 
 # Mount
+import google.generativeai as genai
+
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
+
+@api_router.post("/extract")
+async def extract_gd(file: UploadFile = File(...), _: dict = Depends(require_admin)):
+    if not GEMINI_API_KEY:
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY not configured")
+    
+    contents = await file.read()
+    base64_image = base64.b64encode(contents).decode("utf-8")
+    
+    mime_type = file.content_type or "image/jpeg"
+    
+    prompt = """You are a Pakistani customs document expert. Extract all data from this Goods Declaration (GD) document.
+Return ONLY a valid JSON object with these exact fields (use empty string if not found):
+{
+  "exporter_name": "",
+  "exporter_company": "",
+  "exporter_address": "",
+  "exporter_country": "Pakistan",
+  "buyer_name": "",
+  "buyer_company": "",
+  "buyer_address": "",
+  "buyer_country": "",
+  "buyer_city": "",
+  "buyer_email": "",
+  "product_name": "",
+  "product_category": "",
+  "unit_price": 0.0,
+  "currency": "USD",
+  "quantity": 0.0,
+  "unit": "pcs",
+  "total_value": 0.0,
+  "gross_weight_kg": 0.0,
+  "cartons": 0.0,
+  "shipment_date": "",
+  "gd_number": "",
+  "invoice_number": "",
+  "notes": ""
+}
+Return ONLY the JSON, no explanation, no markdown."""
+
+    try:
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        response = model.generate_content([
+            {"mime_type": mime_type, "data": base64_image},
+            prompt
+        ])
+        
+        raw = response.text.strip()
+        # Clean markdown fences if present
+        raw = raw.replace("```json", "").replace("```", "").strip()
+        extracted = json.loads(raw)
+        return {"success": True, "data": extracted}
+    
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=422, detail=f"Could not parse AI response: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Extraction failed: {str(e)}")
 app.include_router(api_router)
 app.add_middleware(
     CORSMiddleware,
