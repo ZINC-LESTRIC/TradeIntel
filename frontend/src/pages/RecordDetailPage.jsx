@@ -4,7 +4,7 @@ import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
-import { ArrowLeft, Trash2, MapPin, Mail, Building2, Factory, Package, Calendar, Hash, Boxes, Weight } from "lucide-react";
+import { ArrowLeft, Trash2, MapPin, Mail, Building2, Factory, Package, Calendar, Hash, Boxes, Weight, Globe, ExternalLink } from "lucide-react";
 import { fmtMoney, fmtNum, currencySymbol } from "@/lib/format";
 
 export default function RecordDetailPage() {
@@ -71,12 +71,14 @@ export default function RecordDetailPage() {
           <Row label="City" value={r.buyer_city} icon={MapPin} />
           <Row label="Country" value={r.buyer_country} icon={MapPin} />
           <Row label="Email" value={r.buyer_email} icon={Mail} mono />
+          <WebsiteRow value={r.buyer_website} />
           <Row label="Address" value={r.buyer_address} multiline />
         </Block>
 
         <Block title="Product" icon={Package}>
-          <Row label="Name" value={r.product_name} />
+          <Row label="Description" value={r.product_name} />
           <Row label="Category" value={r.product_category} />
+          <Row label="HS Code" value={r.hs_code} icon={Hash} mono />
           <Row label="Unit" value={r.unit} />
           <Row label="Currency" value={r.currency} />
         </Block>
@@ -124,6 +126,32 @@ function Row({ label, value, icon: Icon, mono, multiline }) {
       </div>
       <div className={`col-span-2 ${mono ? "mono text-slate-700" : "text-slate-900"} ${multiline ? "whitespace-pre-line" : ""}`}>
         {value || <span className="text-slate-300">—</span>}
+      </div>
+    </div>
+  );
+}
+
+function WebsiteRow({ value }) {
+  const url = value ? (/^https?:\/\//i.test(value) ? value : `https://${value}`) : "";
+  return (
+    <div className="grid grid-cols-3 gap-3 text-sm">
+      <div className="text-xs uppercase tracking-wider text-slate-400 font-bold pt-0.5 flex items-center gap-1">
+        <Globe className="h-3 w-3" /> Website
+      </div>
+      <div className="col-span-2">
+        {value ? (
+          <a
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            className="text-[#002FA7] hover:underline mono inline-flex items-center gap-1"
+            data-testid="detail-website-link"
+          >
+            {value} <ExternalLink className="h-3 w-3" />
+          </a>
+        ) : (
+          <span className="text-slate-300">—</span>
+        )}
       </div>
     </div>
   );

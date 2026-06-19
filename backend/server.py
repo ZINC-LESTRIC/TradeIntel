@@ -103,8 +103,10 @@ class TradeRecordIn(BaseModel):
     buyer_country: str = ""
     buyer_city: str = ""
     buyer_email: str = ""
+    buyer_website: str = ""
     product_name: str = ""
     product_category: str = ""
+    hs_code: str = ""
     unit_price: float = 0.0
     currency: str = "USD"
     quantity: float = 0.0
@@ -229,12 +231,14 @@ async def list_records(
         and_clauses.append({"$or": [
             {"product_name": {"$regex": qe, "$options": "i"}},
             {"product_category": {"$regex": qe, "$options": "i"}},
+            {"hs_code": {"$regex": qe, "$options": "i"}},
             {"buyer_name": {"$regex": qe, "$options": "i"}},
             {"buyer_company": {"$regex": qe, "$options": "i"}},
             {"exporter_name": {"$regex": qe, "$options": "i"}},
             {"exporter_company": {"$regex": qe, "$options": "i"}},
             {"buyer_country": {"$regex": qe, "$options": "i"}},
             {"buyer_city": {"$regex": qe, "$options": "i"}},
+            {"buyer_website": {"$regex": qe, "$options": "i"}},
             {"notes": {"$regex": qe, "$options": "i"}},
         ]})
     if country:
@@ -332,6 +336,7 @@ async def search(q: str, _: dict = Depends(get_current_user)):
     filt = {"$or": [
         {"product_name": {"$regex": qe, "$options": "i"}},
         {"product_category": {"$regex": qe, "$options": "i"}},
+        {"hs_code": {"$regex": qe, "$options": "i"}},
         {"notes": {"$regex": qe, "$options": "i"}},
     ]}
     docs = await db.records.find(filt, {"_id": 0}).to_list(2000)
@@ -381,56 +386,78 @@ async def filters(_: dict = Depends(get_current_user)):
 
 
 # ============== AI EXTRACT (admin only) ==============
-EXTRACT_SYSTEM = """You are an expert at extracting structured trade/shipping data from invoices, packing lists, bills of lading, purchase orders, GD (Goods Declaration) forms or any export document image.
+EXTRACT_SYSTEM = """You are an expert at extracting BUYER-side trade data from one or more export documents (GD / Goods Declaration, Commercial Invoice, Packing List - any combination, in any order).
 
-Extract ALL of the following fields if visible. Return ONLY valid JSON (no markdown, no commentary). Use empty string for missing text fields and 0 for missing numbers. Detect currency symbol (€=EUR, $=USD, £=GBP, ¥=JPY) and put the currency code.
+Your job is to CONSOLIDATE information across all the documents you receive and output ONE single JSON record describing the buyer and the products shipped.
+
+STRICT RULES (CRITICAL):
+- IGNORE all exporter / shipper / consignor / seller / "from" information. Do NOT output it.
+- IGNORE the GD number, invoice number, AWB, BL number, container number.
+- IGNORE freight, shipping, insurance, CFR, CIF, FOB, EXW, courier (UPS/DHL/FedEx) charges. The "total_value" must be ONLY the product value (sum of unit_price × quantity from the invoice line items).
+- IGNORE gross weight, net weight, cartons / package counts.
+- DO NOT GUESS any field. If something is not visible in any of the documents, return empty string "" (or 0 for numbers).
+- "buyer_website" must be a real URL/domain present in the documents (e.g. www.company.com). NEVER fabricate one from the company name.
+- "hs_code" must be the actual HS / Tariff code as printed on the documents.
+- "product_category" must be auto-detected from the product description (e.g. "Clothing", "Sportswear", "Tools", "Leather Goods", "Home Textiles", "Food", "Medical", "Electronics"). Be concise.
+- "currency" is the 3-letter ISO code (USD/EUR/GBP/JPY/AED/etc.) detected from currency symbols or text.
+- "shipment_date" should be in YYYY-MM-DD if possible.
+- "notes" must ALWAYS be empty "" - the user will fill it in.
+
+Return ONLY a valid JSON object with EXACTLY these keys (no markdown, no commentary):
 
 {
-  "exporter_name": "",
-  "exporter_company": "",
-  "exporter_address": "",
-  "exporter_country": "Pakistan",
   "buyer_name": "",
   "buyer_company": "",
   "buyer_address": "",
-  "buyer_country": "",
   "buyer_city": "",
+  "buyer_country": "",
   "buyer_email": "",
+  "buyer_website": "",
   "product_name": "",
   "product_category": "",
+  "hs_code": "",
+  "quantity": 0,
+  "unit": "",
   "unit_price": 0,
   "currency": "USD",
-  "quantity": 0,
-  "unit": "pcs",
   "total_value": 0,
-  "gross_weight_kg": 0,
-  "cartons": 0,
   "shipment_date": "",
-  "gd_number": "",
-  "invoice_number": "",
   "notes": ""
 }
 """
 
 
 @api_router.post("/extract")
-async def extract_from_image(file: UploadFile = File(...), _: dict = Depends(require_admin)):
+async def extract_from_image(files: List[UploadFile] = File(...), _: dict = Depends(require_admin)):
     if not EMERGENT_LLM_KEY:
         raise HTTPException(status_code=500, detail="LLM key not configured")
-    raw = await file.read()
-    if not raw:
-        raise HTTPException(status_code=400, detail="Empty file")
-    b64 = base64.b64encode(raw).decode("utf-8")
+    if not files:
+        raise HTTPException(status_code=400, detail="No files uploaded")
+    if len(files) > 8:
+        raise HTTPException(status_code=400, detail="Maximum 8 documents per extraction")
+
+    images = []
+    for f in files:
+        raw = await f.read()
+        if not raw:
+            continue
+        b64 = base64.b64encode(raw).decode("utf-8")
+        images.append(ImageContent(image_base64=b64))
+    if not images:
+        raise HTTPException(status_code=400, detail="Empty file(s)")
+
     chat = LlmChat(
         api_key=EMERGENT_LLM_KEY,
         session_id=f"extract-{uuid.uuid4()}",
         system_message=EXTRACT_SYSTEM,
     ).with_model("gemini", "gemini-3-flash-preview")
-    image = ImageContent(image_base64=b64)
-    msg = UserMessage(
-        text="Extract the trade record from this document image. Return only the JSON object as specified.",
-        file_contents=[image],
+
+    intro = (
+        f"You have been given {len(images)} document image(s) (any combination of GD, Invoice, Packing List). "
+        "Consolidate them into a SINGLE buyer-side trade record following the strict rules. "
+        "Return ONLY the JSON object."
     )
+    msg = UserMessage(text=intro, file_contents=images)
     try:
         resp = await chat.send_message(msg)
     except Exception as e:
@@ -450,14 +477,26 @@ async def extract_from_image(file: UploadFile = File(...), _: dict = Depends(req
         data = json.loads(cleaned[start:end])
     except Exception:
         raise HTTPException(status_code=500, detail=f"Could not parse LLM response: {text[:300]}")
-    for k in ("unit_price", "quantity", "total_value", "gross_weight_kg", "cartons"):
+
+    # Whitelist exactly the allowed fields - drop any exporter / GD / freight noise
+    ALLOWED = {
+        "buyer_name", "buyer_company", "buyer_address", "buyer_city",
+        "buyer_country", "buyer_email", "buyer_website",
+        "product_name", "product_category", "hs_code",
+        "quantity", "unit", "unit_price", "currency", "total_value",
+        "shipment_date", "notes",
+    }
+    extracted = {k: data.get(k, "") for k in ALLOWED}
+    for k in ("unit_price", "quantity", "total_value"):
         try:
-            data[k] = float(data.get(k) or 0)
+            extracted[k] = float(extracted.get(k) or 0)
         except (TypeError, ValueError):
-            data[k] = 0.0
-    if not data.get("total_value") and data.get("unit_price") and data.get("quantity"):
-        data["total_value"] = round(data["unit_price"] * data["quantity"], 2)
-    return {"extracted": data, "raw": text}
+            extracted[k] = 0.0
+    if not extracted.get("total_value") and extracted.get("unit_price") and extracted.get("quantity"):
+        extracted["total_value"] = round(extracted["unit_price"] * extracted["quantity"], 2)
+    extracted["notes"] = ""  # always blank, user fills it
+
+    return {"extracted": extracted, "raw": text, "files": len(images)}
 
 
 # ============== ADMIN: USER MANAGEMENT ==============
