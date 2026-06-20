@@ -118,6 +118,7 @@ class TradeRecordIn(BaseModel):
     gd_number: str = ""
     invoice_number: str = ""
     notes: str = ""
+    line_items: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 class TradeRecord(TradeRecordIn):
@@ -403,6 +404,10 @@ STRICT RULES (CRITICAL):
 - "shipment_date" should be in YYYY-MM-DD if possible.
 - "notes" must ALWAYS be empty "" - the user will fill it in.
 
+LINE ITEMS: If the invoice contains MULTIPLE different products with DIFFERENT unit prices (e.g. Shirts $5, Jackets $13, Caps $1.67), populate the "line_items" array with one entry per distinct product. Each line item has: product_name, quantity, unit, unit_price, currency, total_value. If the invoice has a SINGLE product (or all rows are the same product/price), leave "line_items" as an empty array []. The top-level "product_name", "quantity", "unit_price" should describe the overall record:
+  - Single product → top-level fields hold the values; line_items = []
+  - Multiple distinct products → top-level "product_name" = comma-separated names ("Shirts, Jackets, Caps"); top-level "unit_price" = 0 (because there is no single price); top-level "quantity" = sum of all line quantities; top-level "total_value" = sum of all line totals.
+
 Return ONLY a valid JSON object with EXACTLY these keys (no markdown, no commentary):
 
 {
@@ -422,7 +427,8 @@ Return ONLY a valid JSON object with EXACTLY these keys (no markdown, no comment
   "currency": "USD",
   "total_value": 0,
   "shipment_date": "",
-  "notes": ""
+  "notes": "",
+  "line_items": []
 }
 """
 
@@ -484,19 +490,88 @@ async def extract_from_image(files: List[UploadFile] = File(...), _: dict = Depe
         "buyer_country", "buyer_email", "buyer_website",
         "product_name", "product_category", "hs_code",
         "quantity", "unit", "unit_price", "currency", "total_value",
-        "shipment_date", "notes",
+        "shipment_date", "notes", "line_items",
     }
-    extracted = {k: data.get(k, "") for k in ALLOWED}
+    extracted = {k: data.get(k, [] if k == "line_items" else "") for k in ALLOWED}
     for k in ("unit_price", "quantity", "total_value"):
         try:
             extracted[k] = float(extracted.get(k) or 0)
         except (TypeError, ValueError):
             extracted[k] = 0.0
+    # Sanitize line_items
+    items = extracted.get("line_items") or []
+    if not isinstance(items, list):
+        items = []
+    clean_items = []
+    for it in items:
+        if not isinstance(it, dict):
+            continue
+        ci = {
+            "product_name": str(it.get("product_name") or "").strip(),
+            "quantity": float(it.get("quantity") or 0),
+            "unit": str(it.get("unit") or "").strip(),
+            "unit_price": float(it.get("unit_price") or 0),
+            "currency": str(it.get("currency") or extracted.get("currency") or "USD").strip(),
+            "total_value": float(it.get("total_value") or 0),
+        }
+        if not ci["total_value"] and ci["unit_price"] and ci["quantity"]:
+            ci["total_value"] = round(ci["unit_price"] * ci["quantity"], 2)
+        if ci["product_name"] or ci["unit_price"]:
+            clean_items.append(ci)
+    extracted["line_items"] = clean_items
     if not extracted.get("total_value") and extracted.get("unit_price") and extracted.get("quantity"):
         extracted["total_value"] = round(extracted["unit_price"] * extracted["quantity"], 2)
-    extracted["notes"] = ""  # always blank, user fills it
+    extracted["notes"] = ""  # always blank; frontend will auto-generate a summary
 
     return {"extracted": extracted, "raw": text, "files": len(images)}
+
+
+# ============== POTENTIAL BUYERS (admin only) ==============
+class PotentialBuyerIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    buyer_name: str = ""
+    company: str = ""
+    country: str = ""
+    product_interest: str = ""
+    contact_number: str = ""
+    email: str = ""
+    notes: str = ""
+
+
+class PotentialBuyer(PotentialBuyerIn):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+
+@api_router.post("/potential_buyers", response_model=PotentialBuyer)
+async def create_potential_buyer(payload: PotentialBuyerIn, _: dict = Depends(require_admin)):
+    pb = PotentialBuyer(**payload.model_dump())
+    await db.potential_buyers.insert_one(pb.model_dump())
+    return pb
+
+
+@api_router.get("/potential_buyers", response_model=List[PotentialBuyer])
+async def list_potential_buyers(_: dict = Depends(require_admin)):
+    docs = await db.potential_buyers.find({}, {"_id": 0}).sort("created_at", -1).to_list(2000)
+    return docs
+
+
+@api_router.put("/potential_buyers/{pb_id}", response_model=PotentialBuyer)
+async def update_potential_buyer(pb_id: str, payload: PotentialBuyerIn, _: dict = Depends(require_admin)):
+    existing = await db.potential_buyers.find_one({"id": pb_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Not found")
+    update = payload.model_dump()
+    await db.potential_buyers.update_one({"id": pb_id}, {"$set": update})
+    return {**existing, **update}
+
+
+@api_router.delete("/potential_buyers/{pb_id}")
+async def delete_potential_buyer(pb_id: str, _: dict = Depends(require_admin)):
+    res = await db.potential_buyers.delete_one({"id": pb_id})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Not found")
+    return {"ok": True}
 
 
 # ============== ADMIN: USER MANAGEMENT ==============

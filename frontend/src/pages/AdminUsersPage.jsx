@@ -48,7 +48,7 @@ export default function AdminUsersPage() {
   const banned = users.filter(u => u.banned).length;
 
   return (
-    <div className="p-8 lg:p-12 max-w-[1200px]" data-testid="admin-users-page">
+    <div className="p-8 lg:p-12 max-w-[1200px] page-fade-in" data-testid="admin-users-page">
       <div className="mb-8">
         <div className="label-tracked mb-3">ADMINISTRATION</div>
         <h1 className="heading-display text-4xl">Users</h1>

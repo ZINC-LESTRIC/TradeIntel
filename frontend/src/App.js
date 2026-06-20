@@ -12,6 +12,7 @@ import UploadPage from "@/pages/UploadPage";
 import AddRecordPage from "@/pages/AddRecordPage";
 import RecordDetailPage from "@/pages/RecordDetailPage";
 import AdminUsersPage from "@/pages/AdminUsersPage";
+import PotentialBuyersPage from "@/pages/PotentialBuyersPage";
 
 function Protected({ children, adminOnly }) {
   const { token, user, bootstrapping, isAdmin } = useAuth();
@@ -37,6 +38,7 @@ function App() {
             <Route path="records/:id" element={<RecordDetailPage />} />
             <Route path="upload" element={<Protected adminOnly><UploadPage /></Protected>} />
             <Route path="add" element={<Protected adminOnly><AddRecordPage /></Protected>} />
+            <Route path="potential-buyers" element={<Protected adminOnly><PotentialBuyersPage /></Protected>} />
             <Route path="admin/users" element={<Protected adminOnly><AdminUsersPage /></Protected>} />
           </Route>
         </Routes>

@@ -44,7 +44,7 @@ export default function Dashboard() {
   const empty = !loading && stats && stats.total_records === 0;
 
   return (
-    <div className="p-8 lg:p-12 max-w-[1400px]" data-testid="dashboard-page">
+    <div className="p-8 lg:p-12 max-w-[1400px] page-fade-in" data-testid="dashboard-page">
       <div className="flex items-end justify-between mb-10 animate-in">
         <div>
           <div className="label-tracked mb-3">OVERVIEW</div>

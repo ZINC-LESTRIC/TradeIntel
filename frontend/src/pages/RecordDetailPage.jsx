@@ -28,7 +28,7 @@ export default function RecordDetailPage() {
   const sym = currencySymbol(r.currency || "USD");
 
   return (
-    <div className="p-8 lg:p-12 max-w-5xl" data-testid="record-detail-page">
+    <div className="p-8 lg:p-12 max-w-5xl page-fade-in" data-testid="record-detail-page">
       <Link to="/records" className="text-xs uppercase tracking-wider text-slate-500 hover:text-[#002FA7] flex items-center gap-1 mb-6">
         <ArrowLeft className="h-3 w-3" /> All records
       </Link>
@@ -51,11 +51,34 @@ export default function RecordDetailPage() {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
-        <Kpi label="UNIT PRICE" value={`${sym}${(r.unit_price || 0).toFixed(2)}`} sub={`per ${r.unit}`} />
+        <Kpi label="UNIT PRICE" value={r.unit_price ? `${sym}${(r.unit_price || 0).toFixed(2)}` : (r.line_items?.length > 1 ? "Mixed" : "—")} sub={r.unit_price ? `per ${r.unit}` : (r.line_items?.length > 1 ? "see breakdown" : "")} />
         <Kpi label="QUANTITY" value={fmtNum(r.quantity)} sub={r.unit} />
         <Kpi label="TOTAL VALUE" value={fmtMoney(r.total_value, r.currency)} sub={r.currency} highlight />
         <Kpi label="PACKAGING" value={r.cartons ? `${fmtNum(r.cartons)} ctns` : "—"} sub={r.gross_weight_kg ? `${r.gross_weight_kg} kg gross` : ""} />
       </div>
+
+      {r.line_items && r.line_items.length > 1 && (
+        <div className="border border-slate-200 rounded-sm p-5 mb-3" data-testid="detail-line-items">
+          <div className="flex items-center gap-2 mb-4">
+            <Hash className="h-4 w-4 text-[#002FA7]" />
+            <h3 className="heading-display text-lg">Line items</h3>
+            <span className="label-tracked ml-1">{r.line_items.length} PRODUCTS</span>
+          </div>
+          <div className="text-sm leading-relaxed">
+            {r.line_items.map((it, i) => {
+              const isym = currencySymbol(it.currency || r.currency || "USD");
+              const price = it.unit_price ? `${isym}${it.unit_price.toFixed(2)}` : (it.total_value && it.quantity ? `Auto: ${isym}${(it.total_value / it.quantity).toFixed(2)}` : "—");
+              return (
+                <span key={i} className="mono">
+                  <span className="font-bold text-slate-900">{it.product_name || `Item ${i + 1}`}</span>
+                  : <span className="text-[#002FA7]">{price}/{it.unit || "pc"}</span>
+                  {i < r.line_items.length - 1 && <span className="text-slate-300 mx-1.5">|</span>}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <Block title="Exporter" icon={Factory}>

@@ -1,7 +1,7 @@
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, Search, Database, Upload, PlusCircle, LogOut, Shield, Mail, Phone } from "lucide-react";
+import { LayoutDashboard, Search, Database, Upload, PlusCircle, LogOut, Shield, Mail, Phone, UserPlus } from "lucide-react";
 
 export default function AppLayout() {
   const { logout, user, isAdmin } = useAuth();
@@ -11,6 +11,7 @@ export default function AppLayout() {
     { to: "/", label: "Overview", icon: LayoutDashboard, end: true, testid: "nav-overview", show: true },
     { to: "/search", label: "Search", icon: Search, testid: "nav-search", show: true },
     { to: "/records", label: "All Records", icon: Database, testid: "nav-records", show: true },
+    { to: "/potential-buyers", label: "Potential Buyers", icon: UserPlus, testid: "nav-leads", show: isAdmin },
     { to: "/upload", label: "Upload Document", icon: Upload, testid: "nav-upload", show: isAdmin },
     { to: "/add", label: "Add Manually", icon: PlusCircle, testid: "nav-add", show: isAdmin },
     { to: "/admin/users", label: "Users", icon: Shield, testid: "nav-users", show: isAdmin },
@@ -18,7 +19,7 @@ export default function AppLayout() {
 
   return (
     <div className="min-h-screen flex bg-white">
-      <aside className="w-60 border-r border-slate-200 bg-white flex flex-col" data-testid="sidebar">
+      <aside className="w-60 border-r border-slate-200 bg-white flex flex-col sidebar-slide-in" data-testid="sidebar">
         <div className="p-5 border-b border-slate-200">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 bg-[#002FA7] text-white flex items-center justify-center font-black text-sm">PK</div>

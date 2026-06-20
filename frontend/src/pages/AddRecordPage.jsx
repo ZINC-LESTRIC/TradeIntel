@@ -85,7 +85,7 @@ export default function AddRecordPage() {
   };
 
   return (
-    <div className="p-8 lg:p-12 max-w-4xl" data-testid="add-record-page">
+    <div className="p-8 lg:p-12 max-w-4xl page-fade-in" data-testid="add-record-page">
       <div className="mb-8">
         <div className="label-tracked mb-3">MANUAL ENTRY</div>
         <h1 className="heading-display text-4xl">Add trade record</h1>

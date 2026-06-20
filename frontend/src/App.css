@@ -90,6 +90,41 @@
 }
 .animate-in { animation: slideUp 320ms ease-out both; }
 
+/* Page-level smooth fade-in */
+@keyframes pageFadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.page-fade-in { animation: pageFadeIn 380ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+/* Sidebar slide-in */
+@keyframes sidebarSlideIn {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.sidebar-slide-in { animation: sidebarSlideIn 360ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+/* Hover lift utility - subtle elevation on interactive elements */
+.hover-lift {
+  transition: transform 180ms ease-out, box-shadow 180ms ease-out;
+}
+.hover-lift:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 47, 167, 0.08);
+}
+.hover-lift:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* Stat card hover - subtle elevation */
+.stat-card {
+  transition: transform 180ms ease-out, box-shadow 180ms ease-out, border-color 180ms ease-out;
+}
+.stat-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
+}
+
 /* Group section divider */
 .section-rule {
   border-top: 1px solid #e2e8f0;

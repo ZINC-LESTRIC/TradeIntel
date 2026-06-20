@@ -25,7 +25,7 @@ export default function SearchPage() {
   };
 
   return (
-    <div className="p-8 lg:p-12 max-w-[1400px]" data-testid="search-page">
+    <div className="p-8 lg:p-12 max-w-[1400px] page-fade-in" data-testid="search-page">
       <div className="mb-8 animate-in">
         <div className="label-tracked mb-3">SEARCH</div>
         <h1 className="heading-display text-4xl lg:text-5xl mb-3">Find every shipment</h1>

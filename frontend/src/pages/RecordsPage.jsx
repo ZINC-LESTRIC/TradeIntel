@@ -61,7 +61,7 @@ export default function RecordsPage() {
   };
 
   return (
-    <div className="p-8 lg:p-12" data-testid="records-page">
+    <div className="p-8 lg:p-12 page-fade-in" data-testid="records-page">
       <div className="mb-8 flex items-end justify-between">
         <div>
           <div className="label-tracked mb-3">DATABASE</div>
