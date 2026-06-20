@@ -327,6 +327,78 @@ async def stats(_: dict = Depends(get_current_user)):
     }
 
 
+# ============== ANALYTICS (for terminal dashboard) ==============
+@api_router.get("/analytics")
+async def analytics(_: dict = Depends(get_current_user)):
+    docs = await db.records.find({}, {"_id": 0}).to_list(5000)
+
+    # Monthly time-series
+    monthly = defaultdict(lambda: {"month": "", "shipments": 0, "value": 0.0})
+    for d in docs:
+        date = (d.get("shipment_date") or "").strip()
+        if len(date) >= 7:
+            ym = date[:7]
+            monthly[ym]["month"] = ym
+            monthly[ym]["shipments"] += 1
+            monthly[ym]["value"] += float(d.get("total_value") or 0)
+    monthly_series = sorted(monthly.values(), key=lambda x: x["month"])
+    for m in monthly_series:
+        m["value"] = round(m["value"], 2)
+
+    # Category breakdown
+    cats = defaultdict(lambda: {"category": "", "count": 0, "value": 0.0})
+    for d in docs:
+        c = (d.get("product_category") or "Other").strip() or "Other"
+        cats[c]["category"] = c
+        cats[c]["count"] += 1
+        cats[c]["value"] += float(d.get("total_value") or 0)
+    category_breakdown = sorted(cats.values(), key=lambda x: x["value"], reverse=True)
+    for c in category_breakdown:
+        c["value"] = round(c["value"], 2)
+
+    # Currency totals
+    cur = defaultdict(lambda: {"currency": "", "value": 0.0, "count": 0})
+    for d in docs:
+        k = (d.get("currency") or "USD").strip() or "USD"
+        cur[k]["currency"] = k
+        cur[k]["value"] += float(d.get("total_value") or 0)
+        cur[k]["count"] += 1
+    currency_breakdown = sorted(cur.values(), key=lambda x: x["value"], reverse=True)
+    for c in currency_breakdown:
+        c["value"] = round(c["value"], 2)
+
+    # Top exporters
+    expo = defaultdict(lambda: {"exporter": "", "shipments": 0, "value": 0.0})
+    for d in docs:
+        e = (d.get("exporter_company") or "Unknown").strip() or "Unknown"
+        expo[e]["exporter"] = e
+        expo[e]["shipments"] += 1
+        expo[e]["value"] += float(d.get("total_value") or 0)
+    top_exporters = sorted(expo.values(), key=lambda x: x["value"], reverse=True)[:5]
+    for e in top_exporters:
+        e["value"] = round(e["value"], 2)
+
+    # Top buyers
+    bz = defaultdict(lambda: {"buyer": "", "country": "", "shipments": 0, "value": 0.0})
+    for d in docs:
+        b = (d.get("buyer_company") or "Unknown").strip() or "Unknown"
+        bz[b]["buyer"] = b
+        bz[b]["country"] = d.get("buyer_country") or ""
+        bz[b]["shipments"] += 1
+        bz[b]["value"] += float(d.get("total_value") or 0)
+    top_buyers = sorted(bz.values(), key=lambda x: x["value"], reverse=True)[:8]
+    for b in top_buyers:
+        b["value"] = round(b["value"], 2)
+
+    return {
+        "monthly_series": monthly_series,
+        "category_breakdown": category_breakdown,
+        "currency_breakdown": currency_breakdown,
+        "top_exporters": top_exporters,
+        "top_buyers": top_buyers,
+    }
+
+
 # ============== SEARCH ==============
 @api_router.get("/search")
 async def search(q: str, _: dict = Depends(get_current_user)):

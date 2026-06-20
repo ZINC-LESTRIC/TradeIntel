@@ -4,9 +4,10 @@ import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import Logo from "@/components/Logo";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { Lock, Mail, Anchor } from "lucide-react";
+import { Lock, Mail, Activity } from "lucide-react";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -32,7 +33,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex" data-testid="login-page">
+    <div className="min-h-screen flex" data-testid="login-page" style={{ background: "var(--ti-bg)" }}>
       <div
         className="hidden lg:flex lg:w-1/2 relative overflow-hidden"
         style={{
@@ -42,86 +43,60 @@ export default function Login() {
           backgroundPosition: "center",
         }}
       >
-        <div className="absolute inset-0 bg-slate-900/55" />
-        <div className="relative z-10 p-12 flex flex-col justify-between text-white w-full">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-white text-[#002FA7] flex items-center justify-center font-black text-lg">PK</div>
-            <span className="text-xs tracking-[0.3em] uppercase font-bold">Trade Intelligence</span>
-          </div>
+        <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, rgba(11,20,38,0.85) 0%, rgba(15,31,53,0.75) 100%)" }} />
+        <div className="relative z-10 p-12 flex flex-col justify-between w-full">
+          <Logo variant="full" live height={56} />
           <div className="max-w-lg">
-            <h1 className="heading-display text-5xl xl:text-6xl leading-[0.95] mb-6">
-              Every shipment.<br/>Every buyer.<br/>One search box.
+            <div className="label-tracked mb-4 flex items-center gap-2" style={{ color: "var(--ti-gold)" }}>
+              <Activity className="h-3 w-3" /> PAKISTAN EXPORT INTELLIGENCE TERMINAL
+            </div>
+            <h1 className="heading-display text-5xl xl:text-6xl leading-[0.95] mb-6 text-white">
+              Every shipment.<br/>Every buyer.<br/><span className="text-gold-gradient">One terminal.</span>
             </h1>
             <p className="text-base text-white/80 leading-relaxed max-w-md">
-              A live index of Pakistani exports — search by product and see who's buying, at what price, in which city.
+              A live index of Pakistani exports — search by product and instantly see who's buying, at what price, in which city, from which Pakistani exporter.
             </p>
           </div>
-          <div className="text-xs tracking-[0.2em] uppercase text-white/60">
-            Pakistan → World
+          <div className="text-[10px] mono tracking-[0.2em] uppercase" style={{ color: "rgba(212,175,55,0.7)" }}>
+            Feedback · azulmax990@gmail.com · +92 339 0112545
           </div>
         </div>
       </div>
 
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 terminal-grid" style={{ background: "var(--ti-bg-alt)" }}>
         <form onSubmit={submit} className="w-full max-w-sm space-y-7 animate-in" data-testid="login-form">
+          <div className="lg:hidden mb-2"><Logo variant="full" live height={44} /></div>
           <div>
-            <div className="label-tracked mb-3">SIGN IN</div>
-            <h2 className="heading-display text-3xl mb-2">Welcome back</h2>
-            <p className="text-sm text-slate-500">Sign in with your email to view and search shipments.</p>
+            <div className="label-tracked mb-3" style={{ color: "var(--ti-gold)" }}>SECURE ACCESS</div>
+            <h2 className="heading-display text-3xl mb-2 text-white">Sign in to terminal</h2>
+            <p className="text-sm" style={{ color: "var(--ti-text-muted)" }}>Sign in with your email to view and search shipments.</p>
           </div>
 
           <div className="space-y-3">
             <Label className="label-tracked">Email</Label>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <Input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                required
-                autoFocus
-                className="pl-9 h-11 rounded-sm border-slate-300"
-                data-testid="login-email-input"
-              />
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 z-10" style={{ color: "var(--ti-text-dim)" }} />
+              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" required autoFocus className="pl-9 h-11 rounded-sm" data-testid="login-email-input" />
             </div>
           </div>
 
           <div className="space-y-3">
             <Label className="label-tracked">Password</Label>
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <Input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                className="pl-9 h-11 rounded-sm border-slate-300"
-                data-testid="login-password-input"
-              />
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 z-10" style={{ color: "var(--ti-text-dim)" }} />
+              <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required className="pl-9 h-11 rounded-sm" data-testid="login-password-input" />
             </div>
           </div>
 
-          <Button
-            type="submit"
-            disabled={loading}
-            className="w-full h-11 rounded-sm bg-[#002FA7] hover:bg-[#00227A] text-white font-bold tracking-wide"
-            data-testid="login-submit-button"
-          >
-            {loading ? "Signing in..." : "Sign in →"}
+          <Button type="submit" disabled={loading} className="w-full h-11 rounded-sm bg-[#002FA7] hover-lift font-bold tracking-wide" data-testid="login-submit-button">
+            {loading ? "Authenticating..." : "Enter Terminal →"}
           </Button>
 
-          <div className="text-sm text-slate-500 text-center">
+          <div className="text-sm text-center" style={{ color: "var(--ti-text-muted)" }}>
             New here?{" "}
-            <Link to="/register" className="text-[#002FA7] font-bold hover:underline" data-testid="goto-register">
+            <Link to="/register" className="font-bold hover:underline" style={{ color: "var(--ti-gold)" }} data-testid="goto-register">
               Create a free account
             </Link>
-          </div>
-
-          <div className="text-xs text-slate-400 flex items-center gap-2 pt-4 border-t border-slate-200">
-            <Anchor className="h-3 w-3" />
-            <span>Viewer accounts can search & analyse. Only admin can add data.</span>
           </div>
         </form>
       </div>

@@ -10,8 +10,8 @@ import { Save } from "lucide-react";
 
 const empty = {
   exporter_name: "", exporter_company: "", exporter_address: "", exporter_country: "Pakistan",
-  buyer_name: "", buyer_company: "", buyer_address: "", buyer_city: "", buyer_country: "", buyer_email: "",
-  product_name: "", product_category: "",
+  buyer_name: "", buyer_company: "", buyer_address: "", buyer_city: "", buyer_country: "", buyer_email: "", buyer_website: "",
+  product_name: "", product_category: "", hs_code: "",
   unit_price: 0, currency: "USD", quantity: 0, unit: "pcs", total_value: 0,
   gross_weight_kg: 0, cartons: 0,
   shipment_date: "", gd_number: "", invoice_number: "", notes: "",
@@ -21,8 +21,9 @@ const SECTIONS = [
   {
     title: "PRODUCT",
     fields: [
-      ["product_name", "Product Name", "text"],
+      ["product_name", "Product Description", "text"],
       ["product_category", "Category", "text"],
+      ["hs_code", "HS Code", "text"],
       ["unit_price", "Unit Price", "number"],
       ["currency", "Currency (USD/EUR/GBP/PKR)", "text"],
       ["quantity", "Quantity", "number"],
@@ -49,6 +50,7 @@ const SECTIONS = [
       ["buyer_city", "City", "text"],
       ["buyer_country", "Country", "text"],
       ["buyer_email", "Email", "text"],
+      ["buyer_website", "Website (paste link)", "url"],
       ["buyer_address", "Address", "textarea"],
     ],
   },
